@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Playable Piano</title>
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: #E3F2FD;
+      margin: 0;
+      font-family: 'Poppins', sans-serif;
+    }
+    .wrapper {
+      padding: 30px;
+      border-radius: 20px;
+      background: #141414;
+      text-align: center;
+      color: #B2B2B2;
+      max-width: 900px;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    h2 { color: #fff; }
+    .controls {
+      margin: 15px 0;
+    }
+    .controls button {
+      padding: 8px 15px;
+      margin: 5px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .record { background: #d32f2f; color: #fff; }
+    .stop   { background: #1976d2; color: #fff; }
+    .play   { background: #388e3c; color: #fff; }
+    .save   { background: #f57c00; color: #fff; }
+    .load   { background: #6a1b9a; color: #fff; }
+    .piano-keys {
+      display: flex;
+      list-style: none;
+      padding: 0;
+      margin: 20px 0 0;
+      justify-content: center;
+    }
+    .key {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      text-transform: uppercase;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .white {
+      height: 230px;
+      width: 70px;
+      background: linear-gradient(#fff 96%, #eee 4%);
+      border: 1px solid #000;
+      border-radius: 8px;
+      z-index: 1;
+    }
+    .white.active {
+      background: linear-gradient(to bottom, #fff 0%, #ddd 100%);
+      box-shadow: inset -5px 5px 20px rgba(0,0,0,0.2);
+    }
+    .black {
+      width: 44px;
+      height: 140px;
+      margin: 0 -22px;
+      background: linear-gradient(#333, #000);
+      border-radius: 0 0 5px 5px;
+      z-index: 2;
+      color: #888;
+    }
+    .black.active {
+      background: linear-gradient(to bottom, #000, #555);
+      box-shadow: inset -5px -10px 10px rgba(255,255,255,0.1);
+    }
+    .key span {
+      position: absolute;
+      bottom: 10px;
+      font-size: 14px;
+      color: #666;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <header>
+      <h2>Playable Piano</h2>
+      <div>
+        <label>Volume: <input type="range" min="0" max="1" step="any" value="0.5" id="volume"></label>
+      </div>
+    </header>
+
+    <div class="controls">
+      <button class="record">Record</button>
+      <button class="stop">Stop</button>
+      <button class="play">Play</button>
+      <button class="save">Save</button>
+      <button class="load">Load</button>
+      <input type="file" id="fileInput" accept="application/json" style="display:none">
+    </div>
+
+    <ul class="piano-keys">
+      <li class="key white" data-key="a"><span>A</span></li>
+      <li class="key black" data-key="w"><span>W</span></li>
+      <li class="key white" data-key="s"><span>S</span></li>
+      <li class="key black" data-key="e"><span>E</span></li>
+      <li class="key white" data-key="d"><span>D</span></li>
+      <li class="key white" data-key="f"><span>F</span></li>
+      <li class="key black" data-key="t"><span>T</span></li>
+      <li class="key white" data-key="g"><span>G</span></li>
+      <li class="key black" data-key="y"><span>Y</span></li>
+      <li class="key white" data-key="h"><span>H</span></li>
+      <li class="key black" data-key="u"><span>U</span></li>
+      <li class="key white" data-key="j"><span>J</span></li>
+      <li class="key white" data-key="k"><span>K</span></li>
+      <li class="key black" data-key="o"><span>O</span></li>
+      <li class="key white" data-key="l"><span>L</span></li>
+      <li class="key black" data-key="p"><span>P</span></li>
+      <li class="key white" data-key=";"><span>;</span></li>
+    </ul>
+  </div>
+
+  <script>
+    const pianoKeys = document.querySelectorAll(".piano-keys .key");
+    const volumeControl = document.getElementById("volume");
+    const recordBtn = document.querySelector(".record");
+    const stopBtn = document.querySelector(".stop");
+    const playBtn = document.querySelector(".play");
+    const saveBtn = document.querySelector(".save");
+    const loadBtn = document.querySelector(".load");
+    const fileInput = document.getElementById("fileInput");
+
+    let isRecording = false;
+    let recordedNotes = [];
+    let recordStartTime;
+
+    // Map keys to sound file names (put them in a 'sounds' folder)
+    const keySounds = {
+      a: "C.mp3", w: "Csharp.mp3", s: "D.mp3", e: "Dsharp.mp3", d: "E.mp3",
+      f: "F.mp3", t: "Fsharp.mp3", g: "G.mp3", y: "Gsharp.mp3", h: "A.mp3",
+      u: "Asharp.mp3", j: "B.mp3", k: "C2.mp3", o: "Csharp2.mp3",
+      l: "D2.mp3", p: "Dsharp2.mp3", ";": "E2.mp3"
+    };
+
+    function playTune(key) {
+      if (!keySounds[key]) return;
+      let audio = new Audio(`sounds/${keySounds[key]}`);
+      audio.volume = volumeControl.value;
+      audio.play();
+
+      const clickedKey = document.querySelector(`[data-key="${key}"]`);
+      if (clickedKey) {
+        clickedKey.classList.add("active");
+        setTimeout(() => clickedKey.classList.remove("active"), 150);
+      }
+
+      if (isRecording) {
+        recordedNotes.push({ key, time: Date.now() - recordStartTime });
+      }
+    }
+
+    // Play notes with mouse
+    pianoKeys.forEach(key => {
+      key.addEventListener("click", () => playTune(key.dataset.key));
+    });
+
+    // Play notes with keyboard
+    document.addEventListener("keydown", (e) => {
+      if (keySounds[e.key]) playTune(e.key);
+    });
+
+    // Record
+    recordBtn.addEventListener("click", () => {
+      isRecording = true;
+      recordedNotes = [];
+      recordStartTime = Date.now();
+      alert("Recording started...");
+    });
+
+    // Stop
+    stopBtn.addEventListener("click", () => {
+      if (isRecording) {
+        isRecording = false;
+        alert("Recording stopped.");
+      }
+    });
+
+    // Play recording
+    playBtn.addEventListener("click", () => {
+      if (recordedNotes.length === 0) return alert("No recording available.");
+      recordedNotes.forEach(note => {
+        setTimeout(() => playTune(note.key), note.time);
+      });
+    });
+
+    // Save recording
+    saveBtn.addEventListener("click", () => {
+      if (recordedNotes.length === 0) return alert("Nothing to save.");
+      const blob = new Blob([JSON.stringify(recordedNotes)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "piano_recording.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Load recording
+    loadBtn.addEventListener("click", () => fileInput.click());
+
+    fileInput.addEventListener("change", (event) => {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          recordedNotes = JSON.parse(e.target.result);
+          alert("Recording loaded successfully!");
+        } catch {
+          alert("Invalid file format.");
+        }
+      };
+      reader.readAsText(file);
+    });
+  </script>
+</body>
+</html>
